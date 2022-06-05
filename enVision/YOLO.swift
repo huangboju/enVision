@@ -26,6 +26,22 @@ import UIKit
 
 typealias YoloOutput = [(label: String, prob: Double, box: CGRect, object: CIImage)]
 
+
+extension StringProtocol {
+    subscript(offset: Int) -> Character { self[index(startIndex, offsetBy: offset)] }
+    subscript(range: Range<Int>) -> SubSequence {
+        let startIndex = index(self.startIndex, offsetBy: range.lowerBound)
+        return self[startIndex..<index(startIndex, offsetBy: range.count)]
+    }
+    subscript(range: ClosedRange<Int>) -> SubSequence {
+        let startIndex = index(self.startIndex, offsetBy: range.lowerBound)
+        return self[startIndex..<index(startIndex, offsetBy: range.count)]
+    }
+    subscript(range: PartialRangeFrom<Int>) -> SubSequence { self[index(startIndex, offsetBy: range.lowerBound)...] }
+    subscript(range: PartialRangeThrough<Int>) -> SubSequence { self[...index(startIndex, offsetBy: range.upperBound)] }
+    subscript(range: PartialRangeUpTo<Int>) -> SubSequence { self[..<index(startIndex, offsetBy: range.upperBound)] }
+}
+
 class YOLO {
     
     var threshold = 0.25
@@ -88,7 +104,7 @@ class YOLO {
         //neural network forward run
         guard let network_output = tfYolo.run(onFrame: buffer) else { return [] }
         
-        let output = network_output.flatMap{ ($0 as? NSNumber)?.doubleValue }
+        let output = network_output.compactMap{ ($0 as? NSNumber)?.doubleValue }
         
         //post-processing
         var boxes = postProcessYolo(output: output)
@@ -96,17 +112,17 @@ class YOLO {
         //suppress redundant boxes
         boxes = suppressOverlappingYoloBoxes(boxes, classes: coco ? 80 : 20)
         
-        let labels = tfYolo.getLabels().flatMap{ $0 as? String }
+        let labels = tfYolo.getLabels().compactMap{ $0 as? String }
         
-        return boxes.flatMap { b -> (label: String, prob: Double, box: CGRect, object: CIImage)? in
+        return boxes.compactMap { b -> (label: String, prob: Double, box: CGRect, object: CIImage)? in
             //get probabilities per class
             guard let max_prob = b.probs.max() else { return nil }
             guard max_prob>0 else { return nil }
-            guard let max_index = b.probs.index(of: max_prob) else { return nil }
-            guard max_index<labels.count else { return nil }
+            guard let max_index = b.probs.firstIndex(of: max_prob) else { return nil }
+            guard max_index < labels.count else { return nil }
             
             let label = labels[max_index]
-            guard label != "non_object" else{return nil}
+            guard "\(label)" != "non_object" else {return nil}
             //convert Yolo boxes to screen
             let frameWidth = image.extent.width
             let frameHeight = image.extent.height
@@ -137,7 +153,7 @@ class YOLO {
             
             let object = cropImage(image, to: rect, margin: 0.2*(rect.width<rect.height ? rect.width : rect.height))
             
-            return (label, max_prob, screenRect, object)
+            return ("\(label)", max_prob, screenRect, object)
         }
     }
     

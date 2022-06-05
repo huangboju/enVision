@@ -413,10 +413,10 @@ extension ViewController {
 //MARK: -
 var modelLabel = UILabel()
 var timeLabel = UILabel()
-var finalTask : ((Void)->Void)?
+var finalTask : (()->Void)?
 
 //MARK: Menu UI
-var loadLastModel: (Void)->Void = {}
+var loadLastModel: ()->Void = {}
 
 extension ViewController {
     
@@ -498,7 +498,7 @@ extension ViewController {
         
     }
     
-    func createMenuAction(title: String, shortTitle: Bool = false, style:UIAlertActionStyle = .default, loadTask: @escaping (Void)->Void, frameTask:@escaping (CIImage)->Void)-> UIAlertAction {
+    func createMenuAction(title: String, shortTitle: Bool = false, style:UIAlertAction.Style = .default, loadTask: @escaping ()->Void, frameTask:@escaping (CIImage)->Void)-> UIAlertAction {
         
         return UIAlertAction(title: shortTitle ? title.components(separatedBy: " ").first : title, style: style) { _ in
             loadLastModel = { self.view.addActivityIndicatorOverlay(){ remove in
@@ -834,7 +834,7 @@ extension ViewController {
         
     }
     
-    func stepper1Action(sender: UIStepper){
+    @objc func stepper1Action(sender: UIStepper){
         
         yoloThreshold = sender.value
         fnetThreshold = sender.value
@@ -843,7 +843,7 @@ extension ViewController {
         
     }
     
-    func stepper2Action(sender: UIStepper){
+    @objc func stepper2Action(sender: UIStepper){
         
         jyoloThreshold = sender.value
         
@@ -935,11 +935,11 @@ extension ViewController {
             let valueOriginX = leftMargin;
             let valueText = String(format:"%d%%", valuePercentage)
             
-            self.addLabelLayerWithText(valueText, originX:valueOriginX, originY:originY, width:valueWidth, height:valueHeight, alignment:kCAAlignmentRight)
+            self.addLabelLayerWithText(valueText, originX:valueOriginX, originY:originY, width:valueWidth, height:valueHeight, alignment:.right)
             
             let labelOriginX = (leftMargin + valueWidth + labelMarginX)
             
-            self.addLabelLayerWithText(label, originX:labelOriginX, originY:originY, width:labelWidth, height:labelHeight, alignment:kCAAlignmentLeft)
+            self.addLabelLayerWithText(label, originX:labelOriginX, originY:originY, width:labelWidth, height:labelHeight, alignment:.left)
             
             if (value > 0.5) {
                 //self.speak(label);
@@ -956,7 +956,7 @@ extension ViewController {
         labelLayers.removeAll()
     }
     
-    func addLabelLayerWithText(_ text:String, originX:CGFloat, originY:CGFloat, width:CGFloat, height:CGFloat, alignment:String) {
+    func addLabelLayerWithText(_ text:String, originX:CGFloat, originY:CGFloat, width:CGFloat, height:CGFloat, alignment: CATextLayerAlignmentMode) {
         
         let font = "Menlo-Regular"
         let fontSize = CGFloat(18.0)

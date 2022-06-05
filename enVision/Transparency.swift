@@ -49,9 +49,9 @@ class Transparency : UIView {
         
         for b in boxList {
             let textFontAttributes = [
-                NSFontAttributeName: UIFont(name: "Helvetica Bold", size: 14)!,
-                NSForegroundColorAttributeName: UIColor.white
-                ] as [String : Any]
+                NSAttributedString.Key.font: UIFont(name: "Helvetica Bold", size: 14)!,
+                NSAttributedString.Key.foregroundColor: UIColor.white
+                ]
             b.label.draw(at: b.rect.origin+CGPoint(x:9,y:6), withAttributes: textFontAttributes)
             
             context?.setStrokeColor(b.color.withAlphaComponent(0.7).cgColor)

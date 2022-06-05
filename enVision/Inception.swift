@@ -68,8 +68,8 @@ class Inception {
         //neural network forward run
         guard let network_output = tfInception.run(onFrame: buffer) else { return [] }
         
-        let output = network_output.flatMap{ ($0 as? NSNumber)?.doubleValue }
-        let labels = tfInception.getLabels().flatMap{ $0 as? String }
+        let output = network_output.compactMap{ ($0 as? NSNumber)?.doubleValue }
+        let labels = tfInception.getLabels().compactMap{ $0 as? String }
         
         return Array(zip(labels, output.prefix(labels.count)))
     }

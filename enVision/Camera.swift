@@ -26,8 +26,8 @@ import UIKit
 import AVFoundation
 import Photos
 
-private var CapturingStillImageContext = UnsafeMutableRawPointer.allocate(bytes: 1, alignedTo: 128)//allocate(capacity: 1)
-private var SessionRunningContext = UnsafeMutableRawPointer.allocate(bytes: 1, alignedTo: 128)
+private var CapturingStillImageContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 128)//allocate(capacity: 1)
+private var SessionRunningContext = UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 128)
 
 private var cameraUnavailableLabel: UILabel!
 private var resumeButton: UIButton!
@@ -50,7 +50,7 @@ enum AVCamSetupResult: Int {
 // Utils
 private var setupResult: AVCamSetupResult = .success
 private var sessionRunning = false
-private var backgroundRecordingID: UIBackgroundTaskIdentifier = 0
+private var backgroundRecordingID: UIBackgroundTaskIdentifier = UIBackgroundTaskIdentifier(rawValue: 0)
 
 private var framesQueue : DispatchQueue!
 private var dataQueueSuspended = false
@@ -59,7 +59,7 @@ var sourcePixelFormat = OSType()
 
 private var photoSingleton = singleton_handle()
 private var photoCaptureCompletion : ((Data)->Void)?
-private var end_singleton: ((Void)->Void)?
+private var end_singleton: (()->Void)?
 
 private var worldView = WorldView()
 
@@ -74,11 +74,11 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
             worldView = WorldView(frame: view.bounds)
             worldView.backgroundColor = UIColor.black
             view.addSubview(worldView)
-            view.sendSubview(toBack: worldView)
+            view.sendSubviewToBack(worldView)
             
             resumeButton = UIButton(frame: CGRect(origin: worldView.center, size: CGSize(width: 150, height: 50)))
-            resumeButton .setTitle("Resume", for: UIControlState())
-            resumeButton .setTitleColor(UIColor.white, for: UIControlState())
+            resumeButton .setTitle("Resume", for: .normal)
+            resumeButton .setTitleColor(UIColor.white, for: .normal)
             resumeButton.backgroundColor = UIColor.lightGray.withAlphaComponent(0.5)
             resumeButton .addTarget(self, action: #selector(ViewController.resumeInterruptedSession(_:)), for: .touchUpInside)
             resumeButton.center = worldView.center
@@ -97,7 +97,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         
         // create AVCaptureSession
         session = AVCaptureSession()
-        session.sessionPreset = AVCaptureSessionPresetHigh
+        session.sessionPreset = AVCaptureSession.Preset.high
         
         // setup the world view
         worldView.session = session
@@ -110,7 +110,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         
         // check video authorization status. Video access is required and audio access is optional
         // if audio access is denied, audio is not recorded during movie recording
-        switch AVCaptureDevice.authorizationStatus(forMediaType: AVMediaTypeVideo) {
+        switch AVCaptureDevice.authorizationStatus(for: AVMediaType.video) {
             
         case .authorized:
             
@@ -122,7 +122,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
             // asking the user for audio access if video access is denied.
             // note that audio access will be implicitly requested when we create an AVCaptureDeviceInput for audio during session setup
             sessionQueue.suspend()
-            AVCaptureDevice.requestAccess(forMediaType: AVMediaTypeVideo) { granted in
+            AVCaptureDevice.requestAccess(for: .video) { granted in
                 if !granted {
                     setupResult = .cameraNotAuthorized
                 }
@@ -135,9 +135,9 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         
         guard setupResult == .success else { return }
         
-        backgroundRecordingID = UIBackgroundTaskInvalid
+        backgroundRecordingID = .invalid
         
-        guard let camera =  ViewController.deviceWithMediaType(AVMediaTypeVideo, preferringPosition: frontCam ? .front : .back) else { return }
+        guard let camera =  ViewController.deviceWithMediaType(.video, preferringPosition: frontCam ? .front : .back) else { return }
         let vidInput: AVCaptureDeviceInput!
         do {
             
@@ -163,8 +163,8 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
                 }
                 
                 let previewLayer = worldView.layer as! AVCaptureVideoPreviewLayer
-                previewLayer.connection.videoOrientation = initialVideoOrientation
-                previewLayer.videoGravity = AVLayerVideoGravityResizeAspect
+                previewLayer.connection?.videoOrientation = initialVideoOrientation
+                previewLayer.videoGravity = AVLayerVideoGravity.resizeAspect
                 
             }
         } else {
@@ -187,7 +187,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         //orient frames to initial application orientation
         let statusBarOrientation = UIApplication.shared.statusBarOrientation
         if statusBarOrientation != .unknown {
-            videoDataOutput.connection(withMediaType: AVMediaTypeVideo).videoOrientation = AVCaptureVideoOrientation(rawValue: statusBarOrientation.rawValue)!
+            videoDataOutput.connection(with: AVMediaType.video)?.videoOrientation = AVCaptureVideoOrientation(rawValue: statusBarOrientation.rawValue)!
         }
         
         //Still Image
@@ -213,7 +213,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         
     }
     
-    func captureOutput(_ captureOutput: AVCaptureOutput!, didOutputSampleBuffer sampleBuffer: CMSampleBuffer!, from connection: AVCaptureConnection!) {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         
         guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
@@ -245,7 +245,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
                     // provide quick access to Settings.
                     let settingsAction = UIAlertAction(title: NSLocalizedString("Settings", comment: "Alert button to open Settings"), style: .default) { action in
                         //UIApplication.shared.openURL(URL(string: UIApplicationOpenSettingsURLString)!)
-                        UIApplication.shared.open(URL(string: UIApplicationOpenSettingsURLString)!, options: [:], completionHandler: nil)
+                        UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!, options: [:], completionHandler: nil)
                     }
                     alertController.addAction(settingsAction)
                     self.present(alertController, animated: true, completion: nil)
@@ -321,10 +321,10 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
     func orientCam() {
 
         let deviceOrientation = UIDevice.current.orientation
-        if UIDeviceOrientationIsPortrait(deviceOrientation) || UIDeviceOrientationIsLandscape(deviceOrientation) {
+        if deviceOrientation.isPortrait || deviceOrientation.isLandscape {
             let previewLayer = worldView.layer as! AVCaptureVideoPreviewLayer
-            previewLayer.connection.videoOrientation = AVCaptureVideoOrientation(rawValue: deviceOrientation.rawValue)!
-            videoDataOutput.connection(withMediaType: AVMediaTypeVideo).videoOrientation = AVCaptureVideoOrientation(rawValue: deviceOrientation.rawValue)!
+            previewLayer.connection?.videoOrientation = AVCaptureVideoOrientation(rawValue: deviceOrientation.rawValue)!
+            videoDataOutput.connection(with: .video)?.videoOrientation = AVCaptureVideoOrientation(rawValue: deviceOrientation.rawValue)!
         }
 
     }
@@ -335,11 +335,11 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
             
             end_singleton = end
             
-            let connection = stillImageOutput.connection(withMediaType: AVMediaTypeVideo)
+            let connection = stillImageOutput.connection(with: .video)
             let previewLayer = worldView.layer as! AVCaptureVideoPreviewLayer
             
             // Update the orientation on the still image output video connection before capturing.
-            connection?.videoOrientation = previewLayer.connection.videoOrientation
+            connection?.videoOrientation = previewLayer.connection?.videoOrientation ?? .portrait
             
             // Flash set to Auto for Still Capture.
             //Surface.setFlashMode(AVCaptureFlashMode.auto, forDevice: videoDeviceInput.device)
@@ -367,7 +367,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         
     }
     
-    func capture(_ captureOutput: AVCapturePhotoOutput, didFinishProcessingPhotoSampleBuffer photoSampleBuffer: CMSampleBuffer?, previewPhotoSampleBuffer: CMSampleBuffer?, resolvedSettings: AVCaptureResolvedPhotoSettings, bracketSettings: AVCaptureBracketedStillImageSettings?, error: Error?) {
+    func photoOutput(_ captureOutput: AVCapturePhotoOutput, didFinishProcessingPhoto photoSampleBuffer: CMSampleBuffer?, previewPhoto previewPhotoSampleBuffer: CMSampleBuffer?, resolvedSettings: AVCaptureResolvedPhotoSettings, bracketSettings: AVCaptureBracketedStillImageSettings?, error: Error?) {
         
         guard let photoSampleBuffer = photoSampleBuffer else {
             print("Could not capture still image")
@@ -432,12 +432,12 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         }
     }*/
     
-    func subjectAreaDidChange(_ notification: Notification) {
+    @objc func subjectAreaDidChange(_ notification: Notification) {
         let devicePoint = CGPoint(x: 0.5, y: 0.5)
         self.focusWithMode(.autoFocus, exposeWithMode: .autoExpose, atDevicePoint: devicePoint, monitorSubjectAreaChange: true)
     }
     
-    func sessionRuntimeError(_ notification: Notification) {
+    @objc func sessionRuntimeError(_ notification: Notification) {
         let error = (notification as NSNotification).userInfo![AVCaptureSessionErrorKey]! as! NSError
         NSLog("Capture session runtime error: %@", error)
         
@@ -459,7 +459,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         }
     }
     
-    func sessionWasInterrupted(_ notification: Notification) {
+    @objc func sessionWasInterrupted(_ notification: Notification) {
         // In some scenarios we want to enable the user to resume the session running.
         // For example, if music playback is initiated via control center while using AVCam,
         // then the user can let AVCam resume the session running, which will stop music playback.
@@ -471,10 +471,10 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         let reason = (notification as NSNotification).userInfo![AVCaptureSessionInterruptionReasonKey]! as! Int
         NSLog("Capture session was interrupted with reason %ld", reason)
         
-        if reason == AVCaptureSessionInterruptionReason.audioDeviceInUseByAnotherClient.rawValue ||
-            reason == AVCaptureSessionInterruptionReason.videoDeviceInUseByAnotherClient.rawValue {
+        if reason == AVCaptureSession.InterruptionReason.audioDeviceInUseByAnotherClient.rawValue ||
+            reason == AVCaptureSession.InterruptionReason.videoDeviceInUseByAnotherClient.rawValue {
             showResumeButton = true
-        } else if reason == AVCaptureSessionInterruptionReason.videoDeviceNotAvailableWithMultipleForegroundApps.rawValue {
+        } else if reason == AVCaptureSession.InterruptionReason.videoDeviceNotAvailableWithMultipleForegroundApps.rawValue {
             // Simply fade-in a label to inform the user that the camera is unavailable.
             cameraUnavailableLabel.isHidden = false
             cameraUnavailableLabel.alpha = 0.0
@@ -499,7 +499,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         }
     }
     
-    func sessionInterruptionEnded(_ notification: Notification) {
+    @objc func sessionInterruptionEnded(_ notification: Notification) {
         NSLog("Capture session interruption ended")
         
         if !resumeButton.isHidden {
@@ -520,7 +520,7 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
 
     //MARK: Actions
     
-    func resumeInterruptedSession(_ sender: AnyObject) {
+    @objc func resumeInterruptedSession(_ sender: AnyObject) {
     
         sessionQueue.async {
             // The session might fail to start running, e.g., if a phone or FaceTime call is still using audio or video.
@@ -532,8 +532,8 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
             if !session.isRunning {
                 DispatchQueue.main.async {
                     let message = NSLocalizedString("Unable to resume", comment: "Alert message when unable to resume the session running")
-                    let alertController = UIAlertController(title: "AVCam", message: message, preferredStyle: UIAlertControllerStyle.alert)
-                    let cancelAction = UIAlertAction(title: NSLocalizedString("OK", comment: "Alert OK button"), style: UIAlertActionStyle.cancel, handler: nil)
+                    let alertController = UIAlertController(title: "AVCam", message: message, preferredStyle: UIAlertController.Style.alert)
+                    let cancelAction = UIAlertAction(title: NSLocalizedString("OK", comment: "Alert OK button"), style: UIAlertAction.Style.cancel, handler: nil)
                     alertController.addAction(cancelAction)
                     self.present(alertController, animated: true, completion: nil)
                 }
@@ -547,31 +547,31 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
     
 
     @IBAction func focusAndExposeTap(_ gestureRecognizer: UIGestureRecognizer) {
-        let devicePoint = (worldView.layer as! AVCaptureVideoPreviewLayer).captureDevicePointOfInterest(for: gestureRecognizer.location(in: gestureRecognizer.view))
-        self.focusWithMode(AVCaptureFocusMode.autoFocus, exposeWithMode: AVCaptureExposureMode.autoExpose, atDevicePoint: devicePoint, monitorSubjectAreaChange: true)
+        let devicePoint = (worldView.layer as! AVCaptureVideoPreviewLayer).captureDevicePointConverted(fromLayerPoint: gestureRecognizer.location(in: gestureRecognizer.view))
+        self.focusWithMode(AVCaptureDevice.FocusMode.autoFocus, exposeWithMode: AVCaptureDevice.ExposureMode.autoExpose, atDevicePoint: devicePoint, monitorSubjectAreaChange: true)
 
     }
 
     //MARK: Device Configuration
-    func focusWithMode(_ focusMode: AVCaptureFocusMode, exposeWithMode exposureMode: AVCaptureExposureMode, atDevicePoint point:CGPoint, monitorSubjectAreaChange: Bool) {
+    func focusWithMode(_ focusMode: AVCaptureDevice.FocusMode, exposeWithMode exposureMode: AVCaptureDevice.ExposureMode, atDevicePoint point:CGPoint, monitorSubjectAreaChange: Bool) {
         sessionQueue.async {
             let device = videoDeviceInput.device
             do {
-                try device?.lockForConfiguration()
-                defer {device?.unlockForConfiguration()}
+                try device.lockForConfiguration()
+                defer {device.unlockForConfiguration()}
                 // Setting (focus/exposure)PointOfInterest alone does not initiate a (focus/exposure) operation.
                 // Call -set(Focus/Exposure)Mode: to apply the new point of interest.
-                if (device?.isFocusPointOfInterestSupported)! && (device?.isFocusModeSupported(focusMode))! {
-                    device?.focusPointOfInterest = point
-                    device?.focusMode = focusMode
+                if (device.isFocusPointOfInterestSupported) && (device.isFocusModeSupported(focusMode)) {
+                    device.focusPointOfInterest = point
+                    device.focusMode = focusMode
                 }
                 
-                if (device?.isExposurePointOfInterestSupported)! && (device?.isExposureModeSupported(exposureMode))! {
-                    device?.exposurePointOfInterest = point
-                    device?.exposureMode = exposureMode
+                if (device.isExposurePointOfInterestSupported) && (device.isExposureModeSupported(exposureMode)) {
+                    device.exposurePointOfInterest = point
+                    device.exposureMode = exposureMode
                 }
                 
-                device?.isSubjectAreaChangeMonitoringEnabled = monitorSubjectAreaChange
+                device.isSubjectAreaChangeMonitoringEnabled = monitorSubjectAreaChange
             } catch let error as NSError {
                 NSLog("Could not lock device for configuration: %@", error)
             } catch _ {}
@@ -590,19 +590,19 @@ extension ViewController : AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptu
         }
     }*/
 
-    class func deviceWithMediaType(_ mediaType: String, preferringPosition position: AVCaptureDevicePosition) -> AVCaptureDevice? {
-        
-        guard let devices =  AVCaptureDeviceDiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: mediaType, position: position).devices else { return nil }
-        
+    class func deviceWithMediaType(_ mediaType: AVMediaType, preferringPosition position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+
+//        guard let devices =  AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: mediaType, position: position).devices else { return nil }
+//
         //let devices = AVCaptureDevice.devices(withMediaType: mediaType)
-        guard var captureDevice = devices.first else { return nil }
+        guard let captureDevice = AVCaptureDevice.default(for: mediaType) else { return nil }
         
-        for device in devices as [AVCaptureDevice] {
-            if device.position == position {
-                captureDevice = device
-                break
-            }
-        }
+//        for device in devices as [AVCaptureDevice] {
+//            if device.position == position {
+//                captureDevice = device
+//                break
+//            }
+//        }
         
         return captureDevice
     }
@@ -634,7 +634,7 @@ class WorldView: UIView {
         return AVCaptureVideoPreviewLayer.self
     }
     
-    var session : AVCaptureSession {
+    var session : AVCaptureSession? {
         
         get {
             

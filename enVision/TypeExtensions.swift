@@ -145,7 +145,7 @@ extension Array {
             guard
                 case let swapIndex = Int(arc4random_uniform(UInt32(count - index))) + index
                 , swapIndex != index else { continue }
-            swap(&elements[index], &elements[swapIndex])
+            elements.swapAt(index, swapIndex)
         }
         return elements
     }
@@ -156,7 +156,7 @@ extension Array {
                 case let swapIndex = Int(arc4random_uniform(UInt32(count - index))) + index
                 , swapIndex != index
                 else { continue }
-            swap(&self[index], &self[swapIndex])
+            self.swapAt(index, swapIndex)
         }
     }
     
@@ -210,7 +210,7 @@ extension CGFloat {
 
 func DegToRad(_ a:CGFloat)->CGFloat {
     
-    let b = CGFloat(M_PI) * a/180
+    let b = CGFloat.pi * a/180
     
     return b
 }
@@ -453,7 +453,7 @@ extension Array where Element : CenterType {
         let targets = Array(self)
         let dists = extElement.center.distanceToPoints(targets.map { $0.center })
         guard let min = dists.min() else { return nil }
-        guard let i = dists.index(of: min) else { return nil }
+        guard let i = dists.firstIndex(of: min) else { return nil }
         
         return (targets[i], min)
         
@@ -486,7 +486,7 @@ extension UIView {
     }
     
     var imageViews: [UIImageView]?{
-        return self.subviews.filter({$0.isKind(of: UIImageView.self)}).flatMap{ $0 as? UIImageView }
+        return self.subviews.filter({$0.isKind(of: UIImageView.self)}).compactMap{ $0 as? UIImageView }
     }
     
     var effectView: UIVisualEffectView?{
@@ -648,7 +648,7 @@ extension UIView {
         return self.gestureRecognizers?.filter({ $0 is UIScreenEdgePanGestureRecognizer }) as? [UIScreenEdgePanGestureRecognizer]
     }
     
-    func addActivityIndicatorOverlay(_ completion:((_ remove: @escaping(Void)->Void)->Void)?) {
+    func addActivityIndicatorOverlay(_ completion:((_ remove: @escaping()->Void)->Void)?) {
         
         let ser = serial_handle()
         
@@ -661,11 +661,11 @@ extension UIView {
             actView.alpha = 0.5
         
             let indict = UIActivityIndicatorView(frame: CGRect(origin: CGPoint.zero, size: actView.bounds.size/7))
-            indict.center = actView.center; indict.activityIndicatorViewStyle = .whiteLarge
+            indict.center = actView.center; indict.style = .whiteLarge
             actView .addSubview(indict)
             indict .startAnimating()
 
-            var removeTask:((Void)->Void)? = { next() }
+            var removeTask:(()->Void)? = { next() }
             self.smoothAddSubview(actView, duration: 0.5) { completion?({oneShot(&removeTask)}) }
         
             activityOverlay = actView
@@ -743,7 +743,7 @@ extension UIView {
         
     }
     
-    func smoothAddSubview(_ view: UIView, duration: TimeInterval, completion: ((Void)->Void)?) {
+    func smoothAddSubview(_ view: UIView, duration: TimeInterval, completion: (()->Void)?) {
 
         let oldAlpha = view.alpha
 
@@ -759,12 +759,12 @@ extension UIView {
         
     }
     
-    func smoothHide(duration: TimeInterval, completion: ((Void)->Void)?) {
+    func smoothHide(duration: TimeInterval, completion: (()->Void)?) {
         
         UIView .animate(withDuration: duration, animations: { self.alpha = 0 }, completion: { b in completion?() })
     }
     
-    func smoothChangeAlpha(_ a: CGFloat, duration: TimeInterval, completion: ((Void)->Void)?) {
+    func smoothChangeAlpha(_ a: CGFloat, duration: TimeInterval, completion: (()->Void)?) {
         
         UIView .animate(withDuration: duration, animations: { self.alpha = a }, completion: { b in completion?() })
     }
@@ -1013,7 +1013,7 @@ private class Target {
 
 extension UIScrollView {
     
-    override func snapImage() -> UIImage {
+    func sc_snapImage() -> UIImage {
         
         UIGraphicsBeginImageContext(contentSize)
         
@@ -1039,7 +1039,7 @@ extension UIScrollView {
 
 extension WKWebView {
     
-    override func snapImage() -> UIImage {
+    func wk_snapImage() -> UIImage {
         
         UIGraphicsBeginImageContextWithOptions(bounds.size, true, 0)
         drawHierarchy(in: bounds, afterScreenUpdates: false)
@@ -1169,8 +1169,8 @@ func cropImage(_ image: CIImage, to rect: CGRect, margin: CGFloat=0)-> CIImage{
     var rect = rect.insetBy(dx: -margin, dy: -margin)//add margin
     rect = rect.applying(CGAffineTransform(scaleX: 1, y: -1).translatedBy(x: 0, y: -image.extent.height))//convert to CoreImage coordinates
     
-    let cropped = image.cropping(to: rect)
-    return cropped.applying(CGAffineTransform(translationX: -rect.origin.x, y: -rect.origin.y))
+    let cropped = image.cropped(to: rect)
+    return cropped.transformed(by: CGAffineTransform(translationX: -rect.origin.x, y: -rect.origin.y))
 }
 
 func checkLandscape()->Bool {
@@ -1200,11 +1200,11 @@ func rotatePortraitImage(_ image: CIImage) -> CIImage? {
         
         if statusBarOrientation == .landscapeRight {
             //rotate right
-            return image.applying(CGAffineTransform(rotationAngle: DegToRad(-90))).applying(CGAffineTransform(translationX: 0, y: image.extent.size.width))
+            return image.transformed(by: CGAffineTransform(rotationAngle: DegToRad(-90))).transformed(by: CGAffineTransform(translationX: 0, y: image.extent.size.width))
             
         } else {
             //rotate left
-            return image.applying(CGAffineTransform(rotationAngle: DegToRad(90))).applying(CGAffineTransform(translationX: image.extent.size.height, y: 0))
+            return image.transformed(by: CGAffineTransform(rotationAngle: DegToRad(90))).transformed(by: CGAffineTransform(translationX: image.extent.size.height, y: 0))
             
         }
         
@@ -1212,11 +1212,11 @@ func rotatePortraitImage(_ image: CIImage) -> CIImage? {
         
         if statusBarOrientation == .landscapeRight {
             //rotate left
-            return image.applying(CGAffineTransform(rotationAngle: DegToRad(90))).applying(CGAffineTransform(translationX: image.extent.size.height, y: 0))
+            return image.transformed(by: CGAffineTransform(rotationAngle: DegToRad(90))).transformed(by: CGAffineTransform(translationX: image.extent.size.height, y: 0))
             
         } else {
             //rotate right
-            return image.applying(CGAffineTransform(rotationAngle: DegToRad(-90))).applying(CGAffineTransform(translationX: 0, y: image.extent.size.width))
+            return image.transformed(by: CGAffineTransform(rotationAngle: DegToRad(-90))).transformed(by: CGAffineTransform(translationX: 0, y: image.extent.size.width))
             
         }
         
@@ -1251,38 +1251,38 @@ func createCGImage(_ inputImage: CIImage) -> CGImage! {
 
 extension UIViewController {
     
-    func executeBackgroundTask(_ task: @escaping (_ end: @escaping(Void)->Void)->Void){
+    func executeBackgroundTask(_ task: @escaping (_ end: @escaping()->Void)->Void){
         
         async_main{
             //background task to continue even if App is closed
-            var backTask = UIBackgroundTaskIdentifier()
+            var backTask = UIBackgroundTaskIdentifier.invalid
             backTask = UIApplication.shared.beginBackgroundTask(withName: "background task") {
                 
                 //clean up if necessary
                 
                 UIApplication.shared.endBackgroundTask(backTask)
-                backTask = UIBackgroundTaskInvalid
+                backTask = .invalid
             }
             
             task(){
                 UIApplication.shared.endBackgroundTask(backTask)
-                backTask = UIBackgroundTaskInvalid
+                backTask = .invalid
             }
         }
     }
     
-    func executeBackgroundTask_serial(_ queue: DispatchQueue, task: @escaping (_ end: @escaping(Void)->Void)->Void){
+    func executeBackgroundTask_serial(_ queue: DispatchQueue, task: @escaping (_ end: @escaping()->Void)->Void){
         
         async {
             //background task to continue even if App is closed
-            var backTask = UIBackgroundTaskIdentifier()
+            var backTask = UIBackgroundTaskIdentifier.invalid
             
             backTask = UIApplication.shared.beginBackgroundTask(withName: "background task") {
                 
                 //clean up if necessary
                 
                 UIApplication.shared.endBackgroundTask(backTask)
-                backTask = UIBackgroundTaskInvalid
+                backTask = .invalid
             }
             
             sync_wait { (go) in
@@ -1290,7 +1290,7 @@ extension UIViewController {
                     task(){
                         next()
                         UIApplication.shared.endBackgroundTask(backTask)
-                        backTask = UIBackgroundTaskInvalid
+                        backTask = .invalid
                         go()
                     }
                     
@@ -1346,7 +1346,7 @@ func serial_handle()->DispatchQueue{
     return serial_handle("serialQueue")
 }
 
-func async_serial(_ queue: DispatchQueue?, block:((Void)->Void)?){
+func async_serial(_ queue: DispatchQueue?, block:(()->Void)?){
     
     guard let block = block else { return }
     guard let queue = queue else { return }
@@ -1355,7 +1355,7 @@ func async_serial(_ queue: DispatchQueue?, block:((Void)->Void)?){
     
 }
 
-func async_serial_wait(_ queue: DispatchQueue, block: ((_ next:@escaping(Void)->Void)->Void)?){
+func async_serial_wait(_ queue: DispatchQueue, block: ((_ next:@escaping()->Void)->Void)?){
     
     guard let block = block else { return }
     
@@ -1366,7 +1366,7 @@ func async_serial_wait(_ queue: DispatchQueue, block: ((_ next:@escaping(Void)->
     
 }
 
-func async_serial_main(_ queue: DispatchQueue, block:((Void)->Void)?){
+func async_serial_main(_ queue: DispatchQueue, block:(()->Void)?){
     
     guard let block = block else { return }
     
@@ -1374,7 +1374,7 @@ func async_serial_main(_ queue: DispatchQueue, block:((Void)->Void)?){
     
 }
 
-func async_serial_main_wait(_ queue: DispatchQueue, block:((_ next:@escaping(Void)->Void)->Void)?){
+func async_serial_main_wait(_ queue: DispatchQueue, block:((_ next:@escaping()->Void)->Void)?){
     
     guard let block = block else { return }
     
@@ -1398,7 +1398,7 @@ func async_group_main(_ group: DispatchGroup, block:(()->())?){
     DispatchQueue.main.async(group: group, execute: block)
 }
 
-func async_group_wait(_ group: DispatchGroup, block:((_ go:@escaping(Void)->Void)->Void)?){
+func async_group_wait(_ group: DispatchGroup, block:((_ go:@escaping()->Void)->Void)?){
     
     guard let block = block else { return }
     
@@ -1407,7 +1407,7 @@ func async_group_wait(_ group: DispatchGroup, block:((_ go:@escaping(Void)->Void
     }
 }
 
-func async_group_main_wait(_ group:DispatchGroup, block:((_ go:@escaping(Void)->Void)->Void)?){
+func async_group_main_wait(_ group:DispatchGroup, block:((_ go:@escaping()->Void)->Void)?){
     guard let block = block else { return }
     
     async_group(group) {
@@ -1430,7 +1430,7 @@ func async_main_after(_ group: DispatchGroup, block: (()->())?){
 }
 
 
-func sync_wait(_ block: ((_ go:@escaping(Void)->Void)->Void)?){
+func sync_wait(_ block: ((_ go:@escaping()->Void)->Void)?){
     
     guard let block = block else { return }
     
@@ -1447,7 +1447,7 @@ func singleton_handle()-> Singleton{
     return (OperationQueue(),serial_handle())
 }
 
-func async_singleton(_ s: Singleton?, block: ((Void)->Void)?){
+func async_singleton(_ s: Singleton?, block: (()->Void)?){
 
     guard let block = block else { return }
     
@@ -1464,7 +1464,7 @@ func async_singleton(_ s: Singleton?, block: ((Void)->Void)?){
     //skip otherwise
 }
 
-func async_singleton(_ s: Singleton?, killAfter d: Double, block:((_ cancelled:@escaping(Void)->Bool)->Void)?){
+func async_singleton(_ s: Singleton?, killAfter d: Double, block:((_ cancelled:@escaping()->Bool)->Void)?){
     
     guard let block = block else { return }
     
@@ -1496,7 +1496,7 @@ func async_singleton(_ s: Singleton?, killAfter d: Double, block:((_ cancelled:@
     
 }
 
-func async_singleton_wait(_ s: Singleton?, block: ((_ end:@escaping(Void)->Void)->Void)?){
+func async_singleton_wait(_ s: Singleton?, block: ((_ end:@escaping()->Void)->Void)?){
     
     guard let block = block else { return }
     
@@ -1516,7 +1516,7 @@ func async_singleton_wait(_ s: Singleton?, block: ((_ end:@escaping(Void)->Void)
     
 }
 
-func oneShot(_ block: inout ((Void)->Void)?){
+func oneShot(_ block: inout (()->Void)?){
     
     block?()
     block = nil
@@ -1542,7 +1542,7 @@ func delay_serial(_ queue: DispatchQueue, after:Double,block:(()->())?){
 }
 
 
-func delay_serial_wait(_ queue: DispatchQueue, after:Double,block:((_ next:@escaping(Void)->Void)->Void)?){
+func delay_serial_wait(_ queue: DispatchQueue, after:Double,block:((_ next:@escaping()->Void)->Void)?){
     
     guard let block = block else { return }
     
@@ -1574,7 +1574,7 @@ func skip(_ block:(()->())?){}
 
 extension DispatchQueue{
     
-    func async_repeat(_ times: Int, every: Double, block:((Void)->Void)?)->Timer?{
+    func async_repeat(_ times: Int, every: Double, block:(()->Void)?)->Timer?{
         
         guard let block = block else { return nil }
         
@@ -1711,7 +1711,7 @@ func saveImageDoc(_ image: UIImage, name: String){
     let docsDir = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0]
     let path = docsDir + "/" + name
     
-    if let JPEG = UIImageJPEGRepresentation(image,0.7){
+    if let JPEG = image.jpegData(compressionQuality: 0.7){
         try? JPEG.write(to: URL(fileURLWithPath: path), options: [.atomic])
     }
     
@@ -1744,11 +1744,11 @@ func deleteFile(_ path:String){
     return
 }
 
-func anim(_ duration: Double, actions: @escaping (Void)->Void, completion: ((Void)->Void)?){
+func anim(_ duration: Double, actions: @escaping ()->Void, completion: (()->Void)?){
     UIView .animate(withDuration: duration, animations: actions, completion: { _ in completion?()})
 }
 
-func anim(_ duration:Double,actions: @escaping (Void)->Void){
+func anim(_ duration:Double,actions: @escaping ()->Void){
     anim(duration,actions: actions, completion: nil)
 }
 

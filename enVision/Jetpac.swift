@@ -81,7 +81,7 @@ class Jetpac {
             jpcnn_destroy_image_buffer(cnnInput)
             
             probs = Array(UnsafeMutableBufferPointer<Float>(start: values, count: Int(length))).map { Double($0) }
-            labels = topLayer ? Array(UnsafeMutableBufferPointer<UnsafeMutablePointer<Int8>?>(start: labels_, count: Int(labelsLength))).flatMap { c -> String? in
+            labels = topLayer ? Array(UnsafeMutableBufferPointer<UnsafeMutablePointer<Int8>?>(start: labels_, count: Int(labelsLength))).compactMap { c -> String? in
                 if let cc = UnsafePointer<CChar>(c) { return String(utf8String:cc)} else { return nil }}
                 : Array(repeating: "", count: Int(length))
             

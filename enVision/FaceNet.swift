@@ -50,7 +50,7 @@ class FaceNet {
         //neural network forward run
         guard let network_output = tfFacenet.run(onFrame: buffer) else { return [] }
         
-        let output = network_output.flatMap{ ($0 as? NSNumber)?.doubleValue }
+        let output = network_output.compactMap{ ($0 as? NSNumber)?.doubleValue }
         
         //print("embeddings", output.count)
         
@@ -83,8 +83,8 @@ class FaceDetector {
         return features.map { f -> (face: CIImage, box: CGRect, smile: Bool) in
             
             let rect = f.bounds
-            let cropped = frame.cropping(to: rect)
-            let face = cropped.applying(CGAffineTransform(translationX: -rect.origin.x, y: -rect.origin.y))
+            let cropped = frame.cropped(to: rect)
+            let face = cropped.transformed(by: CGAffineTransform(translationX: -rect.origin.x, y: -rect.origin.y))
             let box = rect.applying(transformToScreen(frame.extent))
             return (face,box, f.hasSmile)
         }
